@@ -11,6 +11,7 @@ toekns to instructions
 put instructions code[]
 start interpreting code[] exicuting the instructions
 
+readme file
 
 Problems
 ---------
@@ -46,7 +47,7 @@ static instruction code[MAX_CODE_LENGTH];
 static char ops[NUM_OP][CMD_LEN] = {
 "" , "lit", "rtn", "lod", "sto", "cal", "inc", "jmp", "jpc", "sio",
 "neg", "add", "sub", "mul", "div", "odd", "mod", "eql", "neq", "lss",
-"Leq", "GTR", "geq"
+"leq", "gtr", "geq"
 };
 
 unsigned bp; //  base pointer
@@ -59,7 +60,7 @@ int getLine( char*, size_t, FILE*);
 void fetch();
 FILE *fileStuff(char**);
 void init(FILE*);
-void tokenize(char ** /*(*params)[NUM_PARAM]*/, char []);
+char ** tokenize(/*char ** (*params)[NUM_PARAM],*/ const char *);
 
 
 int main(int argc, char **argv){
@@ -92,10 +93,10 @@ https://stackoverflow.com/questions/4023895/how-to-read-string-entered-by-user-i
 @return status, OK(0), NO_INPUT(1), and TOO_LONG(2)
 */
 int getLine(char *buff, size_t sz, FILE* fid){
-  int last, ch, extra;
+  int last, ch, extra, i=1;
 
   // get line with buffer overrun protection
-  fflush(stdout);
+  //fflush(stdout);
 
   if(fgets(buff, sz, fid) == NULL){
     return NO_INPUT;
@@ -111,8 +112,11 @@ int getLine(char *buff, size_t sz, FILE* fid){
     return (extra == 1) ? TOO_LONG : OK;
   }
 
-  // Otherwise remove newline and give string back to caller
-  buff[strlen(buff) - 1] = '\0';
+  // Otherwise remove non digit trailing characters and give string back to caller
+  while(last = buff[strlen(buff)-i] < '0' || last > '9' ){
+      buff[strlen(buff) - i] = '\0';
+  }
+
   return OK;
 
 }
@@ -176,16 +180,20 @@ void init(FILE *fid){
   while(getLine(line, MAX_LINE_LEN, fid) == OK && index < MAX_CODE_LENGTH){
     // break into 4 ints
 
-    char * params[NUM_PARAM];
+    char ** params;//[NUM_PARAM];
 
-    tokenize(params, line);
+    params = tokenize(line);
 
     instruction temp;
     //char *end;
     temp.op = (int) strtol(params[0], (char **)NULL, 10);
-    printf("%s", ops[temp.op]);//debug
+    temp.r = (int) strtol(params[1], (char **)NULL, 10);
+    temp.l = (int) strtol(params[2], (char **)NULL, 10);
+    temp.m = (int) strtol(params[3], (char **)NULL, 10);
+    printf("%d %d %d %d\n", temp.op,temp.r,temp.l,temp.m);
+    //printf("%s\n", ops[temp.op]);//debug
 
-
+    free(params);
 
   }
 
@@ -198,16 +206,35 @@ tokenizes string line based on space character
 @parameter params, destination of parameters that have been tokenized
 @parameter ilne, string to be tokenized
 */
-void tokenize(char ** params /*[NUM_PARAM]*/, char line[]){
+char** tokenize(const char* input){
 
-  char s[MAX_LINE_LEN];
-  strcpy(s, line);
-  char* token = strtok(s," ");
-  int index = 0;
-  //printf("HERE\n");//debug
-  while(token && index < NUM_PARAM){
-    strcpy (params[index], token);
+  char * str = strdup(input) ;
+  int count = 0;
+  int capacity = NUM_PARAM;
+  char ** result = calloc(1,capacity*sizeof(*result));
+
+  char* token = strtok(str," ");
+
+  while(1){
+    if (count >= NUM_PARAM){
+      result = realloc(result, (capacity*=2)*sizeof(*result));
+    }
+
+    result[count++] = token? strdup(token) : token;
+
+    if (!token) break;
+
     token = strtok(NULL," ");
   }
+
+  free(str);
+  return result;
+
+  /*
+
+  while(token && (index < NUM_PARAM)){
+    strcpy (params[index++], token);
+    token = strtok(NULL," ");
+  }*/
 
 }
