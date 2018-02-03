@@ -10,13 +10,13 @@ ops to lowercase
 
 #include <stdio.h>
 #include <string.h>
-#include "PM0VM.h"
+#include "pm0.h"
 
 // constants for getLine
 #define OK 0
 #define NO_INPUT 1
 #define TOO_LONG 2
-#define MAX_LINE_LEN 12
+#define MAX_LINE_LEN 16
 
 // constants for the vm
 #define NUM_OP 23 // the number of different instructions
@@ -41,22 +41,22 @@ unsigned pc; // program counter
 unsigned sp; // stack pointer
 
 // function declarations
-static int getLine(char *prmpt, char *buff, size_t sz);
-static void fetch();
-FILE* fileStuff(char**);
-static void init(FILE*);
+int getLine( char*, size_t, FILE*);
+void fetch();
+FILE *fileStuff(char**);
+void init(FILE*);
 
 
 
 int main(int argc, char **argv){
 
   if(argc != 2){
-    printf("Usage: ./pm0 <filename>.txt\n", );
+    printf("Usage: ./pm0 <filename>.txt\n" );
     return -1;
   }
 
-  FILE *fid = fileStuff(argc, argv);
-  if(fin == NULL){
+  FILE *fid = fileStuff(argv);
+  if(fid == NULL){
     return -1;
   }
 
@@ -71,14 +71,14 @@ int main(int argc, char **argv){
 A method of getting input from file. lifted form
 https://stackoverflow.com/questions/4023895/how-to-read-string-entered-by-user-in-c
 
-@paramiter buff, temporary location of the line read in by fgets
-@paramiter sz, max number of characters that fgets will read per line
-@paramiter fid, a file pointer to where we are reading line from
+@parameter buff, temporary location of the line read in by fgets
+@parameter sz, max number of characters that fgets will read per line
+@parameter fid, a file pointer to where we are reading line from
 
 @return status, OK(0), NO_INPUT(1), and TOO_LONG(2)
 */
-static int getLine(char *buff, size_t sz, FILE* fid){
-  int ch, extra;
+int getLine(char *buff, size_t sz, FILE* fid){
+  int last, ch, extra;
 
   // get line with buffer overrun protection
   fflush(stdout);
@@ -89,9 +89,9 @@ static int getLine(char *buff, size_t sz, FILE* fid){
 
   // If it was too long, there'll be no newline. in that case we flush
   // to end of line so the excess doesnt affect the next call
-  if (buff[strlen(buff)-1] != '\n'){
-    extra = 1;
-    while(((ch = getchar()) != '\n') && (ch!= EOF)){
+  if ((last = buff[strlen(buff)-1] != '\n') && (last != EOF)){
+    extra = 0;
+    while(((ch = fgetc(fid)) != '\n') && (ch!= EOF)){
       extra = 1;
     }
     return (extra == 1) ? TOO_LONG : OK;
@@ -107,14 +107,14 @@ static int getLine(char *buff, size_t sz, FILE* fid){
 /*
 loads the next instruction from code[pc] into ir;
 */
-static void fetch(){
+void fetch(){
   ir =  code[pc++];
 }
 
 /*
 this function hadels the opening of the file
 
-@paramiter argv, comand line arguemnt. argv[1] should be the desiered file name
+@parameter argv, comand line arguemnt. argv[1] should be the desiered file name
 
 @return file, a pointer to the open file containing the instructions for the vm
 */
@@ -135,7 +135,7 @@ FILE* fileStuff(char **argv){
 /**
 initilizes the vm
 */
-static void init(FILE *fid){
+void init(FILE *fid){
   // init registers
   bp = 1;
   //ir = ?;
@@ -152,7 +152,7 @@ static void init(FILE *fid){
     stack[j]=0;
   }
 
-  // read from stdin. put in code[]
+  // read from input file. put in code[]
   // expected input: 4 numbers on a line each seperated by a space
   //<op code> <register> <lexical level> <peramiter. could be many things>
   instruction temp;
@@ -161,6 +161,14 @@ static void init(FILE *fid){
 
   while(getLine(line, MAX_LINE_LEN, fid) == OK && index < MAX_CODE_LENGTH){
     // break into 4 ints
+    char s[MAX_LINE_LEN];
+    strcpy(s, line);
+    char* token = strtok(s," ");
+    while(token){
+
+      token = strtok(NULL," ");
+    }
+
 
 
   }
