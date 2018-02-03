@@ -1,14 +1,26 @@
 /**
+Author: Ross Wagner
+
 This code is an implementation of a virtual machine, Psedo machine 0 (PM0),
 designed to run a limited instruction set,
 
 To-do
 -----
-ops to lowercase
+tokenize
+toekns to instructions
+put instructions code[]
+start interpreting code[] exicuting the instructions
+
+
+Problems
+---------
+unwanted characters in tokens causing prolems with str to int conversion
+
 
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "pm0.h"
 
@@ -19,7 +31,9 @@ ops to lowercase
 #define MAX_LINE_LEN 16
 
 // constants for the vm
+#define CMD_LEN 3 // lenght of comands
 #define NUM_OP 23 // the number of different instructions
+#define NUM_PARAM 4 // number of peramiters in each instuction
 #define NUMREG 16
 #define MAX_CODE_LENGTH 500
 #define MAX_LEXI_LEVLES 3
@@ -29,10 +43,10 @@ ops to lowercase
 static unsigned reg[NUMREG];
 unsigned stack[MAX_STACK_HEIGHT];
 static instruction code[MAX_CODE_LENGTH];
-static char ops[NUM_OP][3] = {
-"" , "LIT", "RTN", "LOD", "STO", "CAL", "INC", "JMP", "JPC", "SIO",
-"NEG", "ADD", "SUB", "MUL", "DIV", "ODD", "MOD", "EQL", "NEQ", "LSS",
-"LEQ", "GTR", "GEQ"
+static char ops[NUM_OP][CMD_LEN] = {
+"" , "lit", "rtn", "lod", "sto", "cal", "inc", "jmp", "jpc", "sio",
+"neg", "add", "sub", "mul", "div", "odd", "mod", "eql", "neq", "lss",
+"Leq", "GTR", "geq"
 };
 
 unsigned bp; //  base pointer
@@ -45,7 +59,7 @@ int getLine( char*, size_t, FILE*);
 void fetch();
 FILE *fileStuff(char**);
 void init(FILE*);
-
+void tokenize(char ** /*(*params)[NUM_PARAM]*/, char []);
 
 
 int main(int argc, char **argv){
@@ -161,17 +175,39 @@ void init(FILE *fid){
 
   while(getLine(line, MAX_LINE_LEN, fid) == OK && index < MAX_CODE_LENGTH){
     // break into 4 ints
-    char s[MAX_LINE_LEN];
-    strcpy(s, line);
-    char* token = strtok(s," ");
-    while(token){
 
-      token = strtok(NULL," ");
-    }
+    char * params[NUM_PARAM];
+
+    tokenize(params, line);
+
+    instruction temp;
+    //char *end;
+    temp.op = (int) strtol(params[0], (char **)NULL, 10);
+    printf("%s", ops[temp.op]);//debug
 
 
 
   }
 
+
+}
+
+/*
+tokenizes string line based on space character
+
+@parameter params, destination of parameters that have been tokenized
+@parameter ilne, string to be tokenized
+*/
+void tokenize(char ** params /*[NUM_PARAM]*/, char line[]){
+
+  char s[MAX_LINE_LEN];
+  strcpy(s, line);
+  char* token = strtok(s," ");
+  int index = 0;
+  //printf("HERE\n");//debug
+  while(token && index < NUM_PARAM){
+    strcpy (params[index], token);
+    token = strtok(NULL," ");
+  }
 
 }

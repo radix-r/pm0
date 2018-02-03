@@ -5,7 +5,7 @@ typedef struct activationFrame{
 }activationFrame;
 
 typedef struct instruction{
-  int po; // opcode
+  int op; // opcode
   int r; // reg
   int l; // arguement L
   int m; // arguement M
