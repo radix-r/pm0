@@ -30,7 +30,7 @@ Problems
 #define OK 0
 #define NO_INPUT 1
 #define TOO_LONG 2
-#define MAX_LINE_LEN
+#define MAX_LINE_LEN 30
 
 // constants for the vm
 #define CMD_LEN 4 // lenght of comands
@@ -118,7 +118,7 @@ int base(int l, int base){ // l stand for L in the instruction format
 
 
 /*
-
+reads operation from ir and preforms apropriate computations
 */
 void execute(){
   //determine opcode
@@ -126,9 +126,6 @@ void execute(){
 
   // exicute apropriate instructions based on op code
   switch(op){
-    case 0:// error
-      hault = 1;
-      break;
     case 1: // lit
       reg[ir.r] = ir.m;
       break;
@@ -157,7 +154,7 @@ void execute(){
       pc = ir.m;
       break;
     case 6: // inc
-      if(sp+ir.m > = MAX_STACK_HEIGHT){
+      if(sp+ir.m >= MAX_STACK_HEIGHT){
         printf("Max stack height exceeded. Haulting.\n");
         hault = 1;
         break;
@@ -172,12 +169,12 @@ void execute(){
         pc = ir.m;
       }
       break;
-    case 9; // sio
+    case 9: // sio
       switch(ir.m){
         case 1: // print
           printf("%d\n", reg[ir.r]);
           break;
-        case 2: // read
+        case 2: ;// read
           char *str;
           int status = getLine(str, MAX_NUM_LEN, stdin);
           if (status == OK){
@@ -203,40 +200,40 @@ void execute(){
       reg[ir.r] = reg[ir.l] + reg[ir.m];
       break;
     case 12: // sub
-      reg[ir.i] = reg[ir.l] - reg[ir.m];
+      reg[ir.r] = reg[ir.l] - reg[ir.m];
       break;
     case 13: // mult
-      reg[ir.i] = reg[ir.l] * reg[ir.m];
+      reg[ir.r] = reg[ir.l] * reg[ir.m];
       break;
     case 14: // div
-      reg[ir.i] = reg[ir.l] / reg[ir.m];
+      reg[ir.r] = reg[ir.l] / reg[ir.m];
       break;
     case 15: // odd
-      reg[ir.i] = reg[ir.l] % 2;
+      reg[ir.r] = reg[ir.l] % 2;
       break;
     case 16: // mod
-      reg[ir.i] = reg[ir.l] % reg[ir.m];
+      reg[ir.r] = reg[ir.l] % reg[ir.m];
       break;
     case 17: // eql
-      reg[ir.i] = reg[ir.l] == reg[ir.m];
+      reg[ir.r] = reg[ir.l] == reg[ir.m];
       break;
     case 18: // neq
-      reg[ir.i] = reg[ir.l] != reg[ir.m];
+      reg[ir.r] = reg[ir.l] != reg[ir.m];
       break;
     case 19: // lss
-      reg[ir.i] = reg[ir.l] < reg[ir.m];
+      reg[ir.r] = reg[ir.l] < reg[ir.m];
       break;
     case 20: // leq
-      reg[ir.i] = reg[ir.l] <= reg[ir.m];
+      reg[ir.r] = reg[ir.l] <= reg[ir.m];
       break;
     case 21: // gtr
-      reg[ir.i] = reg[ir.l] > reg[ir.m];
+      reg[ir.r] = reg[ir.l] > reg[ir.m];
       break;
     case 22: // geq
-      reg[ir.i] = reg[ir.l] >= reg[ir.m];
+      reg[ir.r] = reg[ir.l] >= reg[ir.m];
       break;
     default:
-      printf("Unrecognized op code. Haulting.\n", );
+      printf("Unrecognized op code. Haulting.\n");
       hault = 1;
 
   }
@@ -328,7 +325,7 @@ initilizes the vm
 */
 void init(FILE *fid){
   // dummy instruction to set ir to 0
-  instuction dummy;
+  instruction dummy;
   dummy.op = 0;
   dummy.r = 0;
   dummy.l = 0;
