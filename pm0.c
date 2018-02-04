@@ -4,10 +4,14 @@ Author: Ross Wagner
 This code is an implementation of a virtual machine, Psedo machine 0 (PM0),
 designed to run a limited instruction set,
 
+structure of activation frame
+<return value> <static link> <dynamic link> <return address> <>
+
 To-do
 -----
-put instructions code[]
 start interpreting code[] exicuting the instructions
+print stack trace
+"|" between activation frames
 
 readme file
 
@@ -16,7 +20,7 @@ Problems
 
 
 */
-
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,7 +30,7 @@ Problems
 #define OK 0
 #define NO_INPUT 1
 #define TOO_LONG 2
-#define MAX_LINE_LEN 16
+#define MAX_LINE_LEN
 
 // constants for the vm
 #define CMD_LEN 4 // lenght of comands
@@ -35,13 +39,14 @@ Problems
 #define NUMREG 16
 #define MAX_CODE_LENGTH 500
 #define MAX_LEXI_LEVLES 3
+#define MAX_NUM_LEN  11// number can have a most 11 digits, includs potental - sign
 #define MAX_STACK_HEIGHT 2000
 
 
-static unsigned reg[NUMREG];
-unsigned stack[MAX_STACK_HEIGHT];
-static instruction code[MAX_CODE_LENGTH];
-static char ops[NUM_OP][CMD_LEN] = {
+int reg[NUMREG];
+int stack[MAX_STACK_HEIGHT];
+instruction code[MAX_CODE_LENGTH];
+char ops[NUM_OP][CMD_LEN] = {
 "\0" , "lit\0", "rtn\0", "lod\0", "sto\0", "cal\0", "inc\0", "jmp\0", "jpc\0", "sio\0",
 "neg\0", "add\0", "sub\0", "mul\0", "div\0", "odd\0", "mod\0", "eql\0", "neq\0", "lss\0",
 "leq\0", "gtr\0", "geq\0"
@@ -56,10 +61,13 @@ unsigned sp; // stack pointer
 // flags
 int hault = 0;
 
+int codeLen; // where the number of lines of code will be recorded
+
 // function declarations
-//execute()
+int base(int, int);
+void execute();
 int getLine( char*, size_t, FILE*);
-void fetch();
+int fetch();
 FILE *fileStuff(char**);
 void init(FILE*);
 char ** tokenize(const char *);
@@ -80,13 +88,159 @@ int main(int argc, char **argv){
   init(fid);
 
   while(!hault){
-    fetch();
-    //execute();
+
+      execute();
+      fetch();
   }
 
   return 0;
 }
 
+/*
+Find base L levels down
+
+@parameter l, unmber of activation records down
+@parameter base, the base of the current activation record
+
+@return index of the stack that indicates the start of the activation record l
+levles down from current AR
+*/
+int base(int l, int base){ // l stand for L in the instruction format
+
+  int b1; //find base L levels down
+  b1 = base;
+  while (l > 0){
+    b1 = stack[b1 + 1];
+    l--;
+  }
+  return b1;
+}
+
+
+/*
+
+*/
+void execute(){
+  //determine opcode
+  int op = ir.op;
+
+  // exicute apropriate instructions based on op code
+  switch(op){
+    case 0:// error
+      hault = 1;
+      break;
+    case 1: // lit
+      reg[ir.r] = ir.m;
+      break;
+    case 2: // rtn
+      sp = bp-1;
+      bp = stack[sp+3]; // dynamic link
+      pc = stack[sp+4]; // return address
+      break;
+    case 3: // lod
+      reg[ir.r] = stack[base(ir.l, bp)+ir.m];
+      break;
+    case 4: //sto
+      stack[base(ir.l, bp)+ir.m] = reg[ir.r];
+      break;
+    case 5: //cal, creates new activation record
+      if(sp+4 >= MAX_STACK_HEIGHT){
+        printf("Max stack height exceeded. Haulting.\n");
+        hault = 1;
+        break;
+      }
+      stack[sp+1] = 0; // space to return value;
+      stack[sp+2] = base(ir.l, bp); //static link
+      stack[sp+3] = bp; // dynamic link
+      stack[sp+4] = pc; // return address
+      bp = sp+1;
+      pc = ir.m;
+      break;
+    case 6: // inc
+      if(sp+ir.m > = MAX_STACK_HEIGHT){
+        printf("Max stack height exceeded. Haulting.\n");
+        hault = 1;
+        break;
+      }
+      sp = sp + ir.m;
+      break;
+    case 7: // jmp
+      pc = ir.m;
+      break;
+    case 8: // jpc
+      if(reg[ir.r] == 0){
+        pc = ir.m;
+      }
+      break;
+    case 9; // sio
+      switch(ir.m){
+        case 1: // print
+          printf("%d\n", reg[ir.r]);
+          break;
+        case 2: // read
+          char *str;
+          int status = getLine(str, MAX_NUM_LEN, stdin);
+          if (status == OK){
+            long num = strtol(str, (char **)NULL, 10);
+            if(num > INT_MIN && num < INT_MAX){
+              reg[ir.r] = (int) num;
+            }
+          }
+          else if(status == TOO_LONG){
+            printf("Entered vaule is too long.Haulting\n");
+            hault = 1;
+          }
+          break;
+        case 3: //hault
+          hault = 1;
+          break;
+      }
+      break;
+    case 10: // neg
+      reg[ir.r] = -reg[ir.r];
+      break;
+    case 11: // add
+      reg[ir.r] = reg[ir.l] + reg[ir.m];
+      break;
+    case 12: // sub
+      reg[ir.i] = reg[ir.l] - reg[ir.m];
+      break;
+    case 13: // mult
+      reg[ir.i] = reg[ir.l] * reg[ir.m];
+      break;
+    case 14: // div
+      reg[ir.i] = reg[ir.l] / reg[ir.m];
+      break;
+    case 15: // odd
+      reg[ir.i] = reg[ir.l] % 2;
+      break;
+    case 16: // mod
+      reg[ir.i] = reg[ir.l] % reg[ir.m];
+      break;
+    case 17: // eql
+      reg[ir.i] = reg[ir.l] == reg[ir.m];
+      break;
+    case 18: // neq
+      reg[ir.i] = reg[ir.l] != reg[ir.m];
+      break;
+    case 19: // lss
+      reg[ir.i] = reg[ir.l] < reg[ir.m];
+      break;
+    case 20: // leq
+      reg[ir.i] = reg[ir.l] <= reg[ir.m];
+      break;
+    case 21: // gtr
+      reg[ir.i] = reg[ir.l] > reg[ir.m];
+      break;
+    case 22: // geq
+      reg[ir.i] = reg[ir.l] >= reg[ir.m];
+      break;
+    default:
+      printf("Unrecognized op code. Haulting.\n", );
+      hault = 1;
+
+  }
+}
 
 /**
 A method of getting input from file. lifted form
@@ -130,9 +284,19 @@ int getLine(char *buff, size_t sz, FILE* fid){
 
 /*
 loads the next instruction from code[pc] into ir;
+
+@return 1 on sucess, 0 on failure
 */
-void fetch(){
-  ir =  code[pc++];
+int fetch(){
+  if(pc > codeLen){
+    printf("PC exceeded code lenght. Haulting.\n");
+    hault = 1;
+    return 0;
+  }
+
+  ir = code[pc++];// load next instuction
+  return 1;
+
 }
 
 /*
@@ -140,7 +304,8 @@ this function hadels the opening of the file
 
 @parameter argv, comand line arguemnt. argv[1] should be the desiered file name
 
-@return file, a pointer to the open file containing the instructions for the vm
+@return file, a pointer to the open file containing the instructions for the vm.
+returns null on failure
 */
 FILE* fileStuff(char **argv){
 
@@ -162,9 +327,16 @@ initilizes the vm
 @parameter fid, pointer to a file where input will be red from
 */
 void init(FILE *fid){
+  // dummy instruction to set ir to 0
+  instuction dummy;
+  dummy.op = 0;
+  dummy.r = 0;
+  dummy.l = 0;
+  dummy.m = 0;
+
   // init registers
   bp = 1;
-  //ir = ?;
+  ir = dummy;
   pc = 0;
   sp = 0;
 
@@ -210,6 +382,11 @@ void init(FILE *fid){
     }
     free(params);
   }
+  // record length of the code
+  codeLen = index;
+
+  // fetch first instruction
+  fetch();
 }
 
 /*
