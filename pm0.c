@@ -6,8 +6,6 @@ designed to run a limited instruction set,
 
 To-do
 -----
-tokenize
-toekns to instructions
 put instructions code[]
 start interpreting code[] exicuting the instructions
 
@@ -15,7 +13,6 @@ readme file
 
 Problems
 ---------
-unwanted characters in tokens causing prolems with str to int conversion
 
 
 */
@@ -32,7 +29,7 @@ unwanted characters in tokens causing prolems with str to int conversion
 #define MAX_LINE_LEN 16
 
 // constants for the vm
-#define CMD_LEN 3 // lenght of comands
+#define CMD_LEN 4 // lenght of comands
 #define NUM_OP 23 // the number of different instructions
 #define NUM_PARAM 4 // number of peramiters in each instuction
 #define NUMREG 16
@@ -45,22 +42,27 @@ static unsigned reg[NUMREG];
 unsigned stack[MAX_STACK_HEIGHT];
 static instruction code[MAX_CODE_LENGTH];
 static char ops[NUM_OP][CMD_LEN] = {
-"" , "lit", "rtn", "lod", "sto", "cal", "inc", "jmp", "jpc", "sio",
-"neg", "add", "sub", "mul", "div", "odd", "mod", "eql", "neq", "lss",
-"leq", "gtr", "geq"
+"\0" , "lit\0", "rtn\0", "lod\0", "sto\0", "cal\0", "inc\0", "jmp\0", "jpc\0", "sio\0",
+"neg\0", "add\0", "sub\0", "mul\0", "div\0", "odd\0", "mod\0", "eql\0", "neq\0", "lss\0",
+"leq\0", "gtr\0", "geq\0"
 };
 
+// special registers
 unsigned bp; //  base pointer
 instruction ir; // instruction register
 unsigned pc; // program counter
 unsigned sp; // stack pointer
 
+// flags
+int hault = 0;
+
 // function declarations
+//execute()
 int getLine( char*, size_t, FILE*);
 void fetch();
 FILE *fileStuff(char**);
 void init(FILE*);
-char ** tokenize(/*char ** (*params)[NUM_PARAM],*/ const char *);
+char ** tokenize(const char *);
 
 
 int main(int argc, char **argv){
@@ -77,6 +79,10 @@ int main(int argc, char **argv){
 
   init(fid);
 
+  while(!hault){
+    fetch();
+    //execute();
+  }
 
   return 0;
 }
@@ -152,6 +158,8 @@ FILE* fileStuff(char **argv){
 
 /**
 initilizes the vm
+
+@parameter fid, pointer to a file where input will be red from
 */
 void init(FILE *fid){
   // init registers
@@ -190,21 +198,27 @@ void init(FILE *fid){
     temp.r = (int) strtol(params[1], (char **)NULL, 10);
     temp.l = (int) strtol(params[2], (char **)NULL, 10);
     temp.m = (int) strtol(params[3], (char **)NULL, 10);
-    printf("%d %d %d %d\n", temp.op,temp.r,temp.l,temp.m);
-    //printf("%s\n", ops[temp.op]);//debug
 
+    char *op = ops[temp.op];
+    printf("%d %s %d %d %d\n",index, op,temp.r,temp.l,temp.m);
+    code[index++] = temp;
+
+    // dealocate memory used with params
+    char ** it;
+    for(it=params; it && *it; ++it){
+      free(*it);
+    }
     free(params);
-
   }
-
-
 }
 
 /*
-tokenizes string line based on space character
+tokenizes string line based on space character. lifted form
+https://stackoverflow.com/questions/8106765/using-strtok-in-c
 
-@parameter params, destination of parameters that have been tokenized
-@parameter ilne, string to be tokenized
+@parameter input, string to be tokenized
+
+@return result, a string array containing all the tokens
 */
 char** tokenize(const char* input){
 
