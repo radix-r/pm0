@@ -9,15 +9,15 @@ structure of activation frame
 
 To-do
 -----
-start interpreting code[] exicuting the instructions
 print stack trace
 "|" between activation frames
-
+store output
+ptint output
 readme file
 
 Problems
 ---------
-
+uses a lot of global variables
 
 */
 #include <limits.h>
@@ -35,22 +35,25 @@ Problems
 // constants for the vm
 #define CMD_LEN 4 // lenght of comands
 #define NUM_OP 23 // the number of different instructions
-#define NUM_PARAM 4 // number of peramiters in each instuction
+#define NUM_PARAM 4 // number of peramiters in each instruction
 #define NUMREG 16
 #define MAX_CODE_LENGTH 500
 #define MAX_LEXI_LEVLES 3
 #define MAX_NUM_LEN  11// number can have a most 11 digits, includs potental - sign
 #define MAX_STACK_HEIGHT 2000
 
-
-int reg[NUMREG];
-int stack[MAX_STACK_HEIGHT];
+// global vars
 instruction code[MAX_CODE_LENGTH];
+int codeLen; // where the number of lines of code will be recorded
+int codeLine = 0; // current line in code[] we are at
+int hault = 0;
+char **output;// string array that stores all output of the vm
 char ops[NUM_OP][CMD_LEN] = {
 "\0" , "lit\0", "rtn\0", "lod\0", "sto\0", "cal\0", "inc\0", "jmp\0", "jpc\0", "sio\0",
 "neg\0", "add\0", "sub\0", "mul\0", "div\0", "odd\0", "mod\0", "eql\0", "neq\0", "lss\0",
-"leq\0", "gtr\0", "geq\0"
-};
+"leq\0", "gtr\0", "geq\0"};
+int reg[NUMREG];
+int stack[MAX_STACK_HEIGHT];
 
 // special registers
 unsigned bp; //  base pointer
@@ -58,10 +61,7 @@ instruction ir; // instruction register
 unsigned pc; // program counter
 unsigned sp; // stack pointer
 
-// flags
-int hault = 0;
 
-int codeLen; // where the number of lines of code will be recorded
 
 // function declarations
 int base(int, int);
@@ -70,6 +70,9 @@ int getLine( char*, size_t, FILE*);
 int fetch();
 FILE *fileStuff(char**);
 void init(FILE*);
+void printReg();
+void printStack();
+void printState();
 char ** tokenize(const char *);
 
 
@@ -291,7 +294,9 @@ int fetch(){
     return 0;
   }
 
-  ir = code[pc++];// load next instuction
+  codeLine = pc;
+  ir = code[pc++];// load next instruction
+
   return 1;
 
 }
@@ -369,6 +374,7 @@ void init(FILE *fid){
     temp.m = (int) strtol(params[3], (char **)NULL, 10);
 
     char *op = ops[temp.op];
+    // print the translated instruction
     printf("%d %s %d %d %d\n",index, op,temp.r,temp.l,temp.m);
     code[index++] = temp;
 
@@ -381,9 +387,68 @@ void init(FILE *fid){
   }
   // record length of the code
   codeLen = index;
-
   // fetch first instruction
   fetch();
+  // print a newline
+  printf("\n");
+}
+
+/*
+prints instruction in ir
+*/
+void printInstruction(){
+  printf("%s\t%d\t%d\t%d\t", ops[ir.op], ir.r, ir.l, ir.m);
+
+}
+
+/*
+prints the contents of the registers
+*/
+void printReg(){
+  printf("RF: ");
+  int i;
+  for(i=0; i < NUMREG; i++){
+    printf("%d ", reg[i]);
+  }
+  //printf("\n");
+}
+
+/*
+prints the stack where activation frames are seperated by '|' characters
+*/
+void printStack(){
+  // count the activation frames
+  int pos = bp;
+  int frames = 0;
+  while(pos > 0){
+    pos = stack[pos+3];
+    frames++;
+  }
+
+  // save position of bases of frames
+
+  int numChars = sp+frames-1;
+  char *st = calloc(1, 2*(numChars));// dont forget to free this
+
+  int i,stackIndex = sp;
+  for(i = 0; i < numChars; i++){
+    st[i] =//-----------------------------------------------------------
+  }
+
+}
+
+void printStackTrace(){
+  printState();
+  printStack();
+}
+
+/*
+prints the current code[] line, instruction, and the contents of pc, bp, and sp
+*/
+void printState(){
+  prinf("%d\t", codeLine);
+  printInstruction();
+  printf("%d\t%d\t%d\t", pc,bp,sp);
 }
 
 /*
@@ -417,12 +482,4 @@ char** tokenize(const char* input){
 
   free(str);
   return result;
-
-  /*
-
-  while(token && (index < NUM_PARAM)){
-    strcpy (params[index++], token);
-    token = strtok(NULL," ");
-  }*/
-
 }
