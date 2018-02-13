@@ -11,12 +11,13 @@ To-do
 -----
 print stack trace
 "|" between activation frames
-store output
+store output to print later
 ptint output
 readme file
 
 Problems
 ---------
+doesnt like the jpc command
 uses a lot of global variables
 
 */
@@ -73,6 +74,7 @@ void init(FILE*);
 void printReg();
 void printStack();
 void printState();
+void printStrArray(char **, int);
 char ** tokenize(const char *);
 
 
@@ -90,10 +92,17 @@ int main(int argc, char **argv){
 
   init(fid);
 
+  printf("Instruction\t\t\t\tpc\tbp\tsp\n");
   while(!hault){
 
       execute();
+      printState();
+      printStack();
+      printf("\n");
+      printReg();
+      printf("\n");
       fetch();
+
   }
 
   return 0;
@@ -105,8 +114,7 @@ Find base L levels down
 @parameter l, unmber of activation records down
 @parameter base, the base of the current activation record
 
-@return index of the stack that indicates the start of the activation record l
-levles down from current AR
+@return index of the base of the frame l levles down from current AR
 */
 int base(int l, int base){ // l stand for L in the instruction format
 
@@ -144,7 +152,7 @@ void execute(){
       stack[base(ir.l, bp)+ir.m] = reg[ir.r];
       break;
     case 5: //cal, creates new activation record
-      if(sp+4 >= MAX_STACK_HEIGHT){
+      if(sp+4 > MAX_STACK_HEIGHT){
         printf("Max stack height exceeded. Haulting.\n");
         hault = 1;
         break;
@@ -351,6 +359,8 @@ void init(FILE *fid){
   for(j = 0; j < MAX_STACK_HEIGHT; j++){
     stack[j]=0;
   }
+  // initial ? is 1
+  stack[1] = 1;
 
   // read from input file. put in code[]
   // expected input: 4 numbers on a line each seperated by a space
@@ -398,7 +408,6 @@ prints instruction in ir
 */
 void printInstruction(){
   printf("%s\t%d\t%d\t%d\t", ops[ir.op], ir.r, ir.l, ir.m);
-
 }
 
 /*
@@ -420,20 +429,61 @@ void printStack(){
   // count the activation frames
   int pos = bp;
   int frames = 0;
+  int numStrings,i,j,stackIndex = 0;
+  int curFrame = 0;
+  char **st;
+
+
   while(pos > 0){
     pos = stack[pos+3];
     frames++;
   }
 
+/*
+  // lower numbers first
+  int basePos[frames];
   // save position of bases of frames
-
-  int numChars = sp+frames-1;
-  char *st = calloc(1, 2*(numChars));// dont forget to free this
-
-  int i,stackIndex = sp;
-  for(i = 0; i < numChars; i++){
-    st[i] =//-----------------------------------------------------------
+  for(j = 0; j < frames; j++){
+    basePos[j] = base(frames - j, bp);
   }
+*/
+
+
+  numStrings = sp+frames;// number of elements in the stack + num frames
+  st = calloc(1, numStrings*sizeof(*st));// dont forget to free this
+
+
+  for(i = 0; i < numStrings; i++){
+
+    if(stackIndex == bp){// only gets last frame
+      st[i++] = strdup("|");
+      //st[i++] = "|";
+      //curFrame++;
+    }
+
+    char *temp =calloc(1, MAX_NUM_LEN); //size of char = 1, dont forget to free,
+    sprintf(temp, "%d", stack[stackIndex++]);// this is a mess
+    st[i]= strdup(temp);
+    //st[i] = strdup(temp);
+    // try with strcpy
+    //strcpy(st[i], temp);
+/*
+    if(stackIndex == basePos[curFrame]){
+      st[++i] = "|";
+      curFrame++;
+    }
+*/
+  }
+
+
+  printStrArray(st, numStrings);
+
+  // free alocated memory
+  /*char ** it;
+  for(it=st; it && *it; ++it){
+    free(*it);
+  }*/
+  free(st);
 
 }
 
@@ -446,9 +496,21 @@ void printStackTrace(){
 prints the current code[] line, instruction, and the contents of pc, bp, and sp
 */
 void printState(){
-  prinf("%d\t", codeLine);
+  printf("%d\t", codeLine);
   printInstruction();
   printf("%d\t%d\t%d\t", pc,bp,sp);
+}
+
+/*
+prints the content of an array of strings
+*/
+void printStrArray(char **str, int numStrings){
+  int i;
+  for (i = 0; i < numStrings; i++)
+  {
+    printf("%s ",str[i]);
+    fflush(stdout);
+  }
 }
 
 /*
