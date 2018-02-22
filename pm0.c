@@ -19,14 +19,20 @@ readme file
 Problems
 ---------
 uses a lot of global variables
-am I still using 16 registers
 
 */
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "pm0.h"
+
+
+typedef struct instruction{
+  int op; // opcode
+  int r; // reg
+  int l; // arguement L
+  int m; // arguement M
+}instruction;
 
 // constants for getLine
 #define OK 0
@@ -38,7 +44,7 @@ am I still using 16 registers
 #define CMD_LEN 4 // lenght of comands
 #define NUM_OP 23 // the number of different instructions
 #define NUM_PARAM 4 // number of peramiters in each instruction
-#define NUMREG 16
+#define NUMREG 8
 #define MAX_CODE_LENGTH 500
 #define MAX_LEXI_LEVLES 3
 #define MAX_NUM_LEN  11// number can have a most 11 digits, includs potental "-"
