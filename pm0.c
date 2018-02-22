@@ -2,13 +2,14 @@
 Author: Ross Wagner
 
 This code is an implementation of a virtual machine, Psedo machine 0 (PM0),
-designed to run a limited instruction set,
+designed to run a limited instruction set.
 
 structure of activation frame
 <return value> <static link> <dynamic link> <return address> <>
 
 To-do
 -----
+rework fetch exicute
 print stack trace
 "|" between activation frames
 store output to print later
@@ -17,8 +18,8 @@ readme file
 
 Problems
 ---------
-doesnt like the jpc command
 uses a lot of global variables
+am I still using 16 registers
 
 */
 #include <limits.h>
@@ -40,7 +41,7 @@ uses a lot of global variables
 #define NUMREG 16
 #define MAX_CODE_LENGTH 500
 #define MAX_LEXI_LEVLES 3
-#define MAX_NUM_LEN  11// number can have a most 11 digits, includs potental - sign
+#define MAX_NUM_LEN  11// number can have a most 11 digits, includs potental "-"
 #define MAX_STACK_HEIGHT 2000
 
 // global vars
@@ -50,9 +51,9 @@ int codeLine = 0; // current line in code[] we are at
 int hault = 0;
 char **output;// string array that stores all output of the vm
 char ops[NUM_OP][CMD_LEN] = {
-"\0" , "lit\0", "rtn\0", "lod\0", "sto\0", "cal\0", "inc\0", "jmp\0", "jpc\0", "sio\0",
-"neg\0", "add\0", "sub\0", "mul\0", "div\0", "odd\0", "mod\0", "eql\0", "neq\0", "lss\0",
-"leq\0", "gtr\0", "geq\0"};
+"\0" , "LIT\0", "RTN\0", "LOD\0", "STO\0", "CAL\0", "INC\0", "JMP\0", "JPC\0", "SIO\0",
+"NEQ\0", "ADD\0", "SUB\0", "MUL\0", "DIV\0", "ODD\0", "MOD\0", "EQL\0", "NEQ\0", "LSS\0",
+"LEQ\0", "GTR\0", "GEQ\0"};
 int reg[NUMREG];
 int stack[MAX_STACK_HEIGHT];
 
@@ -73,6 +74,7 @@ FILE *fileStuff(char**);
 void init(FILE*);
 void printReg();
 void printStack();
+void printStackTrace();
 void printState();
 void printStrArray(char **, int);
 char ** tokenize(const char *);
@@ -81,7 +83,7 @@ char ** tokenize(const char *);
 int main(int argc, char **argv){
 
   if(argc != 2){
-    printf("Usage: ./pm0 <filename>.txt\n" );
+    printf("Usage: ./pm0 <filename>\n" );
     return -1;
   }
 
@@ -92,16 +94,15 @@ int main(int argc, char **argv){
 
   init(fid);
 
-  printf("Instruction\t\t\t\tpc\tbp\tsp\n");
+  printf("\n OP\tRg Lx Vl[ PC BP SP]\n");
   while(!hault){
 
-      execute();
-      printState();
-      printStack();
-      printf("\n");
-      printReg();
-      printf("\n");
-      fetch();
+      if(fetch()){
+        execute();
+        printStackTrace();
+        printReg();
+      }
+
 
   }
 
@@ -185,7 +186,7 @@ void execute(){
         case 1: // print
           printf("%d\n", reg[ir.r]);
           break;
-        case 2: ;// read
+        case 2: ; // read input from stdin and put in designated register
           char *str;
           int status = getLine(str, MAX_NUM_LEN, stdin);
           if (status == OK){
@@ -195,7 +196,7 @@ void execute(){
             }
           }
           else if(status == TOO_LONG){
-            printf("Entered vaule is too long.Haulting\n");
+            printf("Entered vaule is too long. Haulting\n");
             hault = 1;
           }
           break;
@@ -359,8 +360,6 @@ void init(FILE *fid){
   for(j = 0; j < MAX_STACK_HEIGHT; j++){
     stack[j]=0;
   }
-  // initial ? is 1
-  stack[1] = 1;
 
   // read from input file. put in code[]
   // expected input: 4 numbers on a line each seperated by a space
@@ -385,7 +384,7 @@ void init(FILE *fid){
 
     char *op = ops[temp.op];
     // print the translated instruction
-    printf("%d %s %d %d %d\n",index, op,temp.r,temp.l,temp.m);
+    // printf("%d %s %d %d %d\n",index, op,temp.r,temp.l,temp.m);
     code[index++] = temp;
 
     // dealocate memory used with params
@@ -397,29 +396,28 @@ void init(FILE *fid){
   }
   // record length of the code
   codeLen = index;
-  // fetch first instruction
-  fetch();
+
   // print a newline
-  printf("\n");
+  //printf("\n");
 }
 
 /*
 prints instruction in ir
 */
-void printInstruction(){
+/*void printInstruction(){
   printf("%s\t%d\t%d\t%d\t", ops[ir.op], ir.r, ir.l, ir.m);
-}
+}*/
 
 /*
 prints the contents of the registers
 */
 void printReg(){
-  printf("RF: ");
+  printf("\tRegisters:[ ");
   int i;
   for(i=0; i < NUMREG; i++){
-    printf("%d ", reg[i]);
+    printf("%3d ", reg[i]);
   }
-  //printf("\n");
+  printf("]\n");
 }
 
 /*
@@ -477,7 +475,7 @@ void printStack(){
 
 
   printStrArray(st, numStrings);
-
+  printf("\n");
   // free alocated memory
   /*char ** it;
   for(it=st; it && *it; ++it){
@@ -487,18 +485,13 @@ void printStack(){
 
 }
 
-void printStackTrace(){
-  printState();
-  printStack();
-}
-
 /*
-prints the current code[] line, instruction, and the contents of pc, bp, and sp
+prints the current instruction, and the contents of pc, bp, and sp, followed by
+the contents of the stack up to sp
 */
-void printState(){
-  printf("%d\t", codeLine);
-  printInstruction();
-  printf("%d\t%d\t%d\t", pc,bp,sp);
+void printStackTrace(){
+  printf("%-4s%3d%3d%3d[%3d%3d%3d] ", ops[ir.op], ir.r, ir.l, ir.m,pc,bp,sp);
+  printStack();
 }
 
 /*
@@ -508,7 +501,7 @@ void printStrArray(char **str, int numStrings){
   int i;
   for (i = 0; i < numStrings; i++)
   {
-    printf("%s ",str[i]);
+    printf("%3s ",str[i]);
     fflush(stdout);
   }
 }
