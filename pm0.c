@@ -1,24 +1,16 @@
 /**
+
+COP 3402 Systems Software
+Homework 1: The PL/0 Machine
 Author: Ross Wagner
+
+This is my work and only my work.
 
 This code is an implementation of a virtual machine, Psedo machine 0 (PM0),
 designed to run a limited instruction set.
 
 structure of activation frame
 <return value> <static link> <dynamic link> <return address> <>
-
-To-do
------
-rework fetch exicute
-print stack trace
-"|" between activation frames
-store output to print later
-ptint output
-readme file
-
-Problems
----------
-uses a lot of global variables
 
 */
 #include <limits.h>
@@ -50,43 +42,39 @@ typedef struct instruction{
 #define MAX_NUM_LEN  11// number can have a most 11 digits, includs potental "-"
 #define MAX_STACK_HEIGHT 2000
 
-// global vars
-instruction code[MAX_CODE_LENGTH];
-int codeLen; // where the number of lines of code will be recorded
-int codeLine = 0; // current line in code[] we are at
-int hault = 0;
-char **output;// string array that stores all output of the vm
-char ops[NUM_OP][CMD_LEN] = {
-"\0" , "LIT\0", "RTN\0", "LOD\0", "STO\0", "CAL\0", "INC\0", "JMP\0", "JPC\0", "SIO\0",
-"NEQ\0", "ADD\0", "SUB\0", "MUL\0", "DIV\0", "ODD\0", "MOD\0", "EQL\0", "NEQ\0", "LSS\0",
-"LEQ\0", "GTR\0", "GEQ\0"};
-int reg[NUMREG];
-int stack[MAX_STACK_HEIGHT];
-
-// special registers
-unsigned bp; //  base pointer
-instruction ir; // instruction register
-unsigned pc; // program counter
-unsigned sp; // stack pointer
-
-
-
 // function declarations
-int base(int, int);
-void execute();
+int base(int, int, int*);
+void execute(instruction ir, int *spPtr, int *bpPtr, int *pcPtr, int *lexPtr,
+  int *haultPtr, int *stack, int *reg);
 int getLine( char*, size_t, FILE*);
-int fetch();
+int fetch(int*, instruction*, int*,int, int*, instruction*);
 FILE *fileStuff(char**);
-void init(FILE*);
-void printReg();
-void printStack();
-void printStackTrace();
-void printState();
-void printStrArray(char **, int);
+void init(FILE *fid, instruction *code,int *codeLenPtr, int* bpPtr, instruction *irPtr, int *pcPtr, int *spPtr, int *lexPtr, int *reg, int *stack, char ops[NUM_OP][CMD_LEN]);
+void printReg(int*);
+void printStack(int , int , int* , int );
+void printStackTrace(char [NUM_OP][CMD_LEN], int *, instruction , int , int , int , int );
+//void printStrArray(char **, int);
 char ** tokenize(const char *);
 
 
 int main(int argc, char **argv){
+
+  instruction code[MAX_CODE_LENGTH];
+  int codeLen; // where the number of lines of code will be recorded
+  int codeLine = 0; // current line in code[] we are at
+  int hault = 0;// set to 1 when you want the machine to stop
+  int reg[NUMREG];
+  int stack[MAX_STACK_HEIGHT];
+  char ops[NUM_OP][CMD_LEN] = {
+  "\0" , "LIT\0", "RTN\0", "LOD\0", "STO\0", "CAL\0", "INC\0", "JMP\0", "JPC\0", "SIO\0",
+  "NEQ\0", "ADD\0", "SUB\0", "MUL\0", "DIV\0", "ODD\0", "MOD\0", "EQL\0", "NEQ\0", "LSS\0",
+  "LEQ\0", "GTR\0", "GEQ\0"};
+  // special registers
+  unsigned bp; //  base pointer
+  instruction ir; // instruction register
+  unsigned pc; // program counter
+  unsigned sp; // stack pointer
+  unsigned lex;
 
   if(argc != 2){
     printf("Usage: ./pm0 <filename>\n" );
@@ -98,15 +86,17 @@ int main(int argc, char **argv){
     return -1;
   }
 
-  init(fid);
+  init(fid, code,&codeLen, &bp,&ir,&pc,&sp,&lex,reg, stack, ops);
 
   printf("\n OP\tRg Lx Vl[ PC BP SP]\n");
   while(!hault){
 
-      if(fetch()){
-        execute();
-        printStackTrace();
-        printReg();
+      if(fetch(&hault, code, &codeLine, codeLen, &pc, &ir)){
+        execute(ir, &sp, &bp, &pc, &lex, &hault, stack, reg);
+        hault;
+        printStackTrace(ops, stack,  ir,  pc,  bp,  sp,  lex);
+        printf("\n");
+        printReg(reg);
       }
 
 
@@ -123,7 +113,7 @@ Find base L levels down
 
 @return index of the base of the frame l levles down from current AR
 */
-int base(int l, int base){ // l stand for L in the instruction format
+int base(int l, int base, int *stack){ // l stand for L in the instruction format
 
   int b1; //find base L levels down
   b1 = base;
@@ -138,7 +128,8 @@ int base(int l, int base){ // l stand for L in the instruction format
 /*
 reads operation from ir and preforms apropriate computations
 */
-void execute(){
+void execute(instruction ir, int *spPtr, int *bpPtr, int *pcPtr, int *lexPtr,
+  int *haultPtr, int *stack, int *reg){
   //determine opcode
   int op = ir.op;
 
@@ -148,43 +139,46 @@ void execute(){
       reg[ir.r] = ir.m;
       break;
     case 2: // rtn
-      sp = bp-1;
-      bp = stack[sp+3]; // dynamic link
-      pc = stack[sp+4]; // return address
+      *spPtr = (*bpPtr)-1;
+      *bpPtr = stack[*spPtr+3]; // dynamic link
+      *pcPtr = stack[*spPtr+4]; // return address
+      (*lexPtr)--;
       break;
     case 3: // lod
-      reg[ir.r] = stack[base(ir.l, bp)+ir.m];
+      reg[ir.r] = stack[base(ir.l, *bpPtr, stack)+ir.m];
       break;
     case 4: //sto
-      stack[base(ir.l, bp)+ir.m] = reg[ir.r];
+      stack[base(ir.l, *bpPtr, stack)+ir.m] = reg[ir.r];
       break;
     case 5: //cal, creates new activation record
-      if(sp+4 > MAX_STACK_HEIGHT){
+      if((*spPtr)+4 > MAX_STACK_HEIGHT){
         printf("Max stack height exceeded. Haulting.\n");
-        hault = 1;
+        *haultPtr = 1;
         break;
       }
-      stack[sp+1] = 0; // space to return value;
-      stack[sp+2] = base(ir.l, bp); //static link
-      stack[sp+3] = bp; // dynamic link
-      stack[sp+4] = pc; // return address
-      bp = sp+1;
-      pc = ir.m;
+      stack[*spPtr+1] = 0; // space to return value;
+      stack[*spPtr+2] = base(ir.l, *bpPtr, stack); //static link
+      stack[*spPtr+3] = *bpPtr; // dynamic link
+      stack[*spPtr+4] = *pcPtr; // return address
+      *bpPtr = *spPtr+1;
+      *spPtr = *spPtr+4;
+      *pcPtr = ir.m;
+      (*lexPtr)++;
       break;
     case 6: // inc
-      if(sp+ir.m >= MAX_STACK_HEIGHT){
+      if(*spPtr+ir.m >= MAX_STACK_HEIGHT){
         printf("Max stack height exceeded. Haulting.\n");
-        hault = 1;
+        *haultPtr = 1;
         break;
       }
-      sp = sp + ir.m;
+      *spPtr = *spPtr + ir.m;
       break;
     case 7: // jmp
-      pc = ir.m;
+      *pcPtr = ir.m;
       break;
     case 8: // jpc
       if(reg[ir.r] == 0){
-        pc = ir.m;
+        *pcPtr = ir.m;
       }
       break;
     case 9: // sio
@@ -203,11 +197,11 @@ void execute(){
           }
           else if(status == TOO_LONG){
             printf("Entered vaule is too long. Haulting\n");
-            hault = 1;
+            *haultPtr = 1;
           }
           break;
         case 3: //hault
-          hault = 1;
+          *haultPtr = 1;
           break;
       }
       break;
@@ -252,7 +246,7 @@ void execute(){
       break;
     default:
       printf("Unrecognized op code. Haulting.\n");
-      hault = 1;
+      *haultPtr = 1;
 
   }
 }
@@ -302,15 +296,15 @@ loads the next instruction from code[pc] into ir;
 
 @return 1 on sucess, 0 on failure
 */
-int fetch(){
-  if(pc > codeLen){
+int fetch(int *haultPtr, instruction *code, int *codeLinePtr,int codeLen, int *pcPtr, instruction *irPtr){
+  if(*pcPtr > codeLen){
     printf("PC exceeded code lenght. Haulting.\n");
-    hault = 1;
+    *haultPtr = 1;
     return 0;
   }
 
-  codeLine = pc;
-  ir = code[pc++];// load next instruction
+  *codeLinePtr = *pcPtr;
+  *irPtr = code[(*pcPtr)++];// load next instruction
 
   return 1;
 
@@ -343,7 +337,7 @@ initilizes the vm
 
 @parameter fid, pointer to a file where input will be red from
 */
-void init(FILE *fid){
+void init(FILE *fid, instruction *code,int *codeLenPtr, int* bpPtr, instruction *irPtr, int *pcPtr, int *spPtr, int *lexPtr, int *reg, int *stack, char ops[NUM_OP][CMD_LEN]){
   // dummy instruction to set ir to 0
   instruction dummy;
   dummy.op = 0;
@@ -352,10 +346,11 @@ void init(FILE *fid){
   dummy.m = 0;
 
   // init registers
-  bp = 1;
-  ir = dummy;
-  pc = 0;
-  sp = 0;
+  *bpPtr = 1;
+  *irPtr = dummy;
+  *pcPtr = 0;
+  *spPtr = 0;
+  *lexPtr = 0;
 
   // initilize reg and stack to all 0
   int i,j;
@@ -401,7 +396,7 @@ void init(FILE *fid){
     free(params);
   }
   // record length of the code
-  codeLen = index;
+  *codeLenPtr = index;
 
   // print a newline
   //printf("\n");
@@ -417,100 +412,48 @@ prints instruction in ir
 /*
 prints the contents of the registers
 */
-void printReg(){
-  printf("\tRegisters:[ ");
+void printReg(int *reg){
+  printf("\tRegisters:[");
   int i;
   for(i=0; i < NUMREG; i++){
-    printf("%3d ", reg[i]);
+    printf("%3d", reg[i]);
   }
   printf("]\n");
+  fflush(stdout);
 }
 
 /*
 prints the stack where activation frames are seperated by '|' characters
 */
-void printStack(){
-  // count the activation frames
-  int pos = bp;
-  int frames = 0;
-  int numStrings,i,j,stackIndex = 0;
-  int curFrame = 0;
-  char **st;
-
-
-  while(pos > 0){
-    pos = stack[pos+3];
-    frames++;
-  }
-
-/*
-  // lower numbers first
-  int basePos[frames];
-  // save position of bases of frames
-  for(j = 0; j < frames; j++){
-    basePos[j] = base(frames - j, bp);
-  }
-*/
-
-
-  numStrings = sp+frames;// number of elements in the stack + num frames
-  st = calloc(1, numStrings*sizeof(*st));// dont forget to free this
-
-
-  for(i = 0; i < numStrings; i++){
-
-    if(stackIndex == bp){// only gets last frame
-      st[i++] = strdup("|");
-      //st[i++] = "|";
-      //curFrame++;
-    }
-
-    char *temp =calloc(1, MAX_NUM_LEN); //size of char = 1, dont forget to free,
-    sprintf(temp, "%d", stack[stackIndex++]);// this is a mess
-    st[i]= strdup(temp);
-    //st[i] = strdup(temp);
-    // try with strcpy
-    //strcpy(st[i], temp);
-/*
-    if(stackIndex == basePos[curFrame]){
-      st[++i] = "|";
-      curFrame++;
-    }
-*/
-  }
-
-
-  printStrArray(st, numStrings);
-  printf("\n");
-  // free alocated memory
-  /*char ** it;
-  for(it=st; it && *it; ++it){
-    free(*it);
-  }*/
-  free(st);
-
+void printStack(int sp, int bp, int* stack, int lex){
+     int i;
+     if (bp == 1) {
+     	if (lex > 0) {
+	      printf("|");
+	    }
+     }
+     else {
+     	  //Print the lesser lexical level
+     	  printStack(bp-1, stack[bp + 2], stack, lex-1);
+	      printf("|");
+     }
+     //Print the stack contents - at the current level
+     for (i = bp; i <= sp; i++) {
+     	 printf("%3d ", stack[i]);
+     }
+     fflush(stdout);
 }
 
 /*
 prints the current instruction, and the contents of pc, bp, and sp, followed by
 the contents of the stack up to sp
 */
-void printStackTrace(){
+void printStackTrace(char ops[NUM_OP][CMD_LEN], int *stack, instruction ir, int pc, int bp, int sp, int lex){
   printf("%-4s%3d%3d%3d[%3d%3d%3d] ", ops[ir.op], ir.r, ir.l, ir.m,pc,bp,sp);
-  printStack();
+  printStack(sp, bp, stack, lex);
+  fflush(stdout);
 }
 
-/*
-prints the content of an array of strings
-*/
-void printStrArray(char **str, int numStrings){
-  int i;
-  for (i = 0; i < numStrings; i++)
-  {
-    printf("%3s ",str[i]);
-    fflush(stdout);
-  }
-}
 
 /*
 tokenizes string line based on space character. lifted form
